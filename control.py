@@ -1,7 +1,6 @@
 import cv2
 from pynput.keyboard import Controller, Key
 import handtrackingmodule2 as htm
-import time
 import numpy as np
 
 # Video and hand detection setup
@@ -15,8 +14,10 @@ keyboard = Controller()
 # Flags for drawing and pointer mode
 drawMode = False  # Are we drawing?
 eraseMode = False  # Are we erasing?
-gestureCooldown = 5.0  # Time delay (in seconds) before allowing another slide change
-lastGestureTime = time.time()  # Track time of last gesture
+
+# State flags for slide control
+previousSlideActive = False  # To prevent repeated slide change to previous
+nextSlideActive = False  # To prevent repeated slide change to next
 
 # Create a blank canvas to draw on
 canvas = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -28,21 +29,28 @@ while True:
     
     if len(lmList) != 0:
         fingers = detector.fingersUp()  # Get which fingers are up
-        currentTime = time.time()
-
-        # Move to previous slide (left arrow) only if cooldown period has passed
-        if fingers == [1, 0, 0, 0, 0] and (currentTime - lastGestureTime > gestureCooldown):  # Thumb up 👍
+        
+        # Move to previous slide (left arrow)
+        if fingers == [1, 0, 0, 0, 0] and not previousSlideActive:  # Thumb up 👍
             keyboard.press(Key.left)
             keyboard.release(Key.left)
             print("Moving to the previous slide")
-            lastGestureTime = currentTime  # Reset cooldown timer
+            previousSlideActive = True  # Lock this action until gesture is repeated
         
-        # Move to next slide (right arrow) only if cooldown period has passed
-        if fingers == [0, 0, 0, 0, 1] and (currentTime - lastGestureTime > gestureCooldown):  # Pinkie up 🖖
+        # Reset previous slide state if gesture is no longer active
+        if fingers != [1, 0, 0, 0, 0]:
+            previousSlideActive = False
+        
+        # Move to next slide (right arrow)
+        if fingers == [0, 0, 0, 0, 1] and not nextSlideActive:  # Pinkie up 🖖
             keyboard.press(Key.right)
             keyboard.release(Key.right)
             print("Moving to the next slide")
-            lastGestureTime = currentTime  # Reset cooldown timer
+            nextSlideActive = True  # Lock this action until gesture is repeated
+
+        # Reset next slide state if gesture is no longer active
+        if fingers != [0, 0, 0, 0, 1]:
+            nextSlideActive = False
 
         # Show pointer (index and middle fingers up)
         if fingers == [0, 1, 1, 0, 0]:  # ✌️ gesture
