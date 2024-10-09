@@ -34,7 +34,7 @@ pinchStartTime = 0  # To time the pinch gesture for dragging
 dragThreshold = 1.0  # Seconds required to enter drag mode
 mouseMode = False  # To track if in mouse mode
 mouseModeStartTime = 0  # To time when mouse mode starts
-mouseModeDelay = 3  # Delay before entering mouse mode
+mouseModeDelay = 4  # Delay before entering mouse mode
 
 while True:
     success, img = cap.read()
@@ -72,7 +72,7 @@ while True:
 
                 prevMouseX, prevMouseY = finalMouseX, finalMouseY  # Update previous positions
 
-        # *** Left Click Gesture (Improved) ***
+        # *** Left Click Gesture***
         if fingers == [1, 1, 0, 0, 0]:  # Thumb and index finger together
             length, _, _ = detector.findDistance(4, 8, img)  # Distance between thumb and index
             if length < 40:  # Pinch gesture detected
@@ -95,7 +95,6 @@ while True:
                     mouse.click(Button.right, 1)  # Right-click action
                     clickActive = True
                     print("Right Click")
-            else:
                     clickActive = False
 
         # *** Slide Control ***
