@@ -34,22 +34,35 @@ pinchStartTime = 0  # To time the pinch gesture for dragging
 dragThreshold = 1.0  # Seconds required to enter drag mode
 mouseMode = False  # To track if in mouse mode
 mouseModeStartTime = 0  # To time when mouse mode starts
-mouseModeDelay = 4  # Delay before entering mouse mode
+mouseModeDelay = 5  # Delay before entering mouse mode
 
 while True:
     success, img = cap.read()
+    
     img = detector.findHands(img)
     lmList, bbox = detector.findPosition(img)
 
     if len(lmList) != 0:
-        fingers = detector.fingersUp()  # Get which fingers are up
+        fingers = detector.fingersUp()  
+        cv2.rectangle(img, (bbox[0] - 20, bbox[1] - 20), 
+                      (bbox[2] + 20, bbox[3] + 20), 
+                      (0, 255, 0), 2)
+        
+        # Identifying the hand (left or right) based on thumb position
+        if lmList[4][1] < lmList[17][1]:  
+            handType = "Right"
+        else:  
+            handType = "Left"
+        
+        cv2.putText(img, handType, (bbox[0] - 30, bbox[1] - 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         # Check for entering mouse mode (both thumb and index fingers up)
-        if fingers == [1, 1, 0, 0, 0]:  # Thumb and index finger up
+        if fingers == [1, 1, 0, 0, 0]:  
             if not mouseMode:  # If not already in mouse mode
-                if mouseModeStartTime == 0:  # Start timing when entering the gesture
+                if mouseModeStartTime == 0:  
                     mouseModeStartTime = time.time()  # Start timer for mouse mode delay
-                elif time.time() - mouseModeStartTime > mouseModeDelay:  # If delay has passed
+                elif time.time() - mouseModeStartTime > mouseModeDelay: 
                     mouseMode = True  # Enter mouse mode
                     print("Entered Mouse Mode")
             else:
@@ -95,7 +108,8 @@ while True:
                     mouse.click(Button.right, 1)  # Right-click action
                     clickActive = True
                     print("Right Click")
-                    clickActive = False
+            else:
+                clickActive = False
 
         # *** Slide Control ***
         if fingers == [1, 1, 1, 1, 1] and not nextSlideActive:  # Palm gesture for slides
