@@ -68,7 +68,17 @@ class handDetector():
             else:
                 fingers.append(0)
         return fingers
+    def findFullPinch(self, img, draw=True):
+        # Check if thumb is close to all other fingers (full pinch gesture)
+        distances = []
+        for fingerId in self.tipIds[1:]:  # Loop over Index, Middle, Ring, Pinky
+            length, img, _ = self.findDistance(4, fingerId, img, draw=False)
+            distances.append(length)
 
+        if all(d < 40 for d in distances):  # If all fingers are close to the thumb
+            return True
+        return False
+    
     def findDistance(self, p1, p2, img, draw=True):
 
         x1, y1 = self.lmList[p1][1], self.lmList[p1][2]
