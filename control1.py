@@ -40,19 +40,23 @@ prevScrollY = None
 clickActive = False 
 mouseMode = False 
 mouseModeStartTime = 0  
-mouseModeDelay = 5  
+mouseModeDelay = 1  
 
 #to avoid hyper click
 clickCooldown = 0.5 
 lastClickTime = 0
 
-# Variables for zoom mode
-zoomMode = False  # To track zoom mode state
-zoomModeActive = False  # To ensure one-time zoom action
-zoomModeStartTime = 0  # Start time for entering zoom mode
-zoomModeDelay = 5  # Delay before entering zoom mode
-zoomInActive = False
-zoomOutActive = False
+# # Variables for zoom mode
+# zoomMode = False  # To track zoom mode state
+# zoomModeActive = False  # To ensure one-time zoom action
+# zoomModeStartTime = 0  # Start time for entering zoom mode
+# zoomModeDelay = 5  # Delay before entering zoom mode
+# zoomInActive = False
+# zoomOutActive = False
+
+presentationMode = False
+presentationModeStartTime = 0
+presentationModeDelay = 0
 
 while True:
     success, img = cap.read()
@@ -77,33 +81,43 @@ while True:
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         # Check for entering mouse mode (both thumb and index fingers up)
-        if fingers == [1, 1, 0, 0, 0]:  
-            if not mouseMode:  
-                if mouseModeStartTime == 0:  
-                    mouseModeStartTime = time.time() 
-                elif time.time() - mouseModeStartTime > mouseModeDelay: 
-                    mouseMode = True  
-                    print("Entered Mouse Mode")
-            else:
-                mouseModeStartTime = 0 
-        # only when in mouse mode
-        if not dragMode:
-            if mouseMode:
-                if fingers == [0, 1, 0, 0, 0]:  
+        if fingers == [1, 1, 1, 0, 0]:
+                if not mouseMode and not presentationMode:
+                    if mouseModeStartTime == 0:
+                        mouseModeStartTime = currentTime
+                    elif currentTime - mouseModeStartTime > mouseModeDelay:
+                        mouseMode = True
+                        presentationMode = False
+                        dragMode = False
+                        print("Entered Mouse Mode")
+                elif mouseMode:
+                    # Handle mouse click when in mouse mode
+                    length, _, _ = detector.findDistance(4, 8, img)
+                    if length < 40 and not clickActive and currentTime - lastClickTime > clickCooldown:
+                        mouse.click(Button.left, 1)
+                        clickActive = True
+                        lastClickTime = currentTime
+                        print("Left Click")
+                    elif length >= 40:
+                        clickActive = False
+        else:
+            mouseModeStartTime = 0
+        
+        if mouseMode and fingers == [0, 1, 0, 0, 0]:  
                     #hand to screen coordinates
-                    x1, y1 = lmList[8][1], lmList[8][2]  
-                    currMouseX = np.interp(x1, (75, 640 - 75), (0, screenWidth)) 
-                    currMouseY = np.interp(y1, (75, 480 - 75), (0, screenHeight))  
+            x1, y1 = lmList[8][1], lmList[8][2]  
+            currMouseX = np.interp(x1, (75, 640 - 75), (0, screenWidth)) 
+            currMouseY = np.interp(y1, (75, 480 - 75), (0, screenHeight))  
 
-                    finalMouseX = prevMouseX + (currMouseX - prevMouseX) / smoothening
-                    finalMouseY = prevMouseY + (currMouseY - prevMouseY) / smoothening
+            finalMouseX = prevMouseX + (currMouseX - prevMouseX) / smoothening
+            finalMouseY = prevMouseY + (currMouseY - prevMouseY) / smoothening
 
-                    mouse.position = (screenWidth - finalMouseX, finalMouseY) 
+            mouse.position = (screenWidth - finalMouseX, finalMouseY) 
 
-                    prevMouseX, prevMouseY = finalMouseX, finalMouseY 
+            prevMouseX, prevMouseY = finalMouseX, finalMouseY 
                     
         #Drag mode
-        if detector.findFullPinch(img):  
+        if mouseMode and detector.findFullPinch(img):  
             if not dragMode:
                 # Start drag mode
                 pyautogui.mouseDown()  # Hold the mouse down (start dragging)
@@ -124,14 +138,19 @@ while True:
 
             prevMouseX, prevMouseY = finalMouseX, finalMouseY 
 
-        else:
-
-            if dragMode:
+        elif dragMode:
                 pyautogui.mouseUp()  #(drop item)
                 dragMode = False
                 print("Stopped dragging")
 
-        
+        # Exit current mode - Make a fist (all fingers down)
+        if fingers == [0, 0, 0, 0, 0]:
+            if presentationMode or mouseMode:
+                presentationMode = False
+                mouseMode = False
+                dragMode = False
+                print("Exited all modes")
+                time.sleep(0)  # Prevent immediate re-entry        
 
         # ** Left Click Gesture**
         if fingers == [1, 1, 0, 0, 0]:  # Thumb and index finger together
@@ -181,23 +200,34 @@ while True:
             
         # *** Slide Control ***
         if fingers == [1, 1, 1, 1, 1] and not nextSlideActive:  #Palm
-            if prevframe:
-                # Slide to next
-                if (bbox[2] - prevframe) < -150:
-                    keyboard.press(Key.right)
-                    keyboard.release(Key.right)
-                    print("Moving to the next slide")
-                    nextSlideActive = True 
-                    prevframe = None
-                # Slide to previous
-                elif (bbox[2] - prevframe) > 150:
-                    keyboard.press(Key.left)
-                    keyboard.release(Key.left)
-                    print("Moving to the previous slide")
-                    previousSlideActive = True  # Lock action
-                    prevframe = None
-            else:
-                prevframe = bbox[2]
+            if not presentationMode and not mouseMode:
+                if presentationModeStartTime == 0:
+                    presentationModeStartTime = currentTime
+                elif currentTime - presentationModeStartTime > presentationModeDelay:
+                    presentationMode = True
+                    mouseMode = False
+                    dragMode = False
+                    print("Entered Presentation Mode")
+            elif presentationMode:
+                if prevframe:
+                    # Slide to next
+                    if (bbox[2] - prevframe) < -150:
+                        keyboard.press(Key.right)
+                        keyboard.release(Key.right)
+                        print("Moving to the next slide")
+                        nextSlideActive = True 
+                        prevframe = None
+                    # Slide to previous
+                    elif (bbox[2] - prevframe) > 150:
+                        keyboard.press(Key.left)
+                        keyboard.release(Key.left)
+                        print("Moving to the previous slide")
+                        previousSlideActive = True  # Lock action
+                        prevframe = None
+                else:
+                    prevframe = bbox[2]
+        else:
+            presentationModeStartTime = 0
         
         # *** Scroll Control ***
         if fingers == [1, 1, 1, 1, 1]:  
@@ -224,6 +254,8 @@ while True:
         if fingers != [1, 1, 1, 1, 1]:
             nextSlideActive = False
             prevframe = None
+        
+        
 
         # # Show pointer (index and middle fingers up)
         # if fingers == [0, 1, 1, 0, 0]:  # ✌️ gesture
@@ -273,7 +305,19 @@ while True:
         #         zoomModeActive = True  # Zoom out executed once
         #         print("Zooming Out")
 
+    # Display current mode on the webcam feed
+    mode_text = "Mode: "
+    if presentationMode:
+        mode_text += "Presentation"
+    elif mouseMode:
+        mode_text += "Mouse"
+        if dragMode:
+            mode_text += " (Dragging)"
+    else:
+        mode_text += "None"
+
     # Show webcam image
+    cv2.putText(img, mode_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     cv2.imshow("Webcam", img)
     cv2.waitKey(1)
 
